@@ -22,6 +22,9 @@ pub use oqc_lucy::*;
 mod rigetti_aspenm3;
 pub use rigetti_aspenm3::*;
 
+mod standardize_device;
+pub use standardize_device::*;
+
 use qoqo_iqm::GarnetDeviceWrapper;
 
 use pyo3::prelude::*;
@@ -34,5 +37,13 @@ pub fn aws_devices(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<OQCLucyDeviceWrapper>()?;
     m.add_class::<RigettiAspenM3DeviceWrapper>()?;
     m.add_class::<GarnetDeviceWrapper>()?;
+    m.add_class::<BraketSchemaHeaderWrapper>()?;
+    m.add_class::<TimePropertyWrapper>()?;
+    m.add_class::<FidelityTypeWrapper>()?;
+    m.add_class::<FidelityMeasurementWrapper>()?;
+    m.add_class::<OneQubitPropertyWrapper>()?;
+    m.add_class::<TwoQubitGateFidelityWrapper>()?;
+    m.add_class::<TwoQubitPropertyWrapper>()?;
+    m.add_class::<StandardizedDeviceWrapper>()?;
     Ok(())
 }

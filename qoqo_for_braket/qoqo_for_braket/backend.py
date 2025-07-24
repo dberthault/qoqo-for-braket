@@ -27,9 +27,41 @@ from braket.devices import LocalSimulator
 from braket.ir import openqasm
 from braket.jobs.local import LocalQuantumJob
 from qoqo import Circuit, QuantumProgram
-from qoqo import operations as ops
+from qoqo import operations as ops  # type: ignore
 from qoqo.measurements import ClassicalRegister  # type:ignore
+from qiskit.providers import BackendV2
+from qiskit.transpiler import CouplingMap, Target, InstructionProperties, Layout, PassManager
+from qiskit import QuantumCircuit, transpile
+from qiskit.transpiler.passes import (
+    VF2Layout,  # noise-aware perfect-layout search
+    SabreSwap,  # heuristic router that inserts SWAPs
+    FullAncillaAllocation,
+    ApplyLayout,
+)
+from qiskit.circuit.library import (
+    IGate,
+    RGate,
+    RXGate,
+    RYGate,
+    RZGate,
+    SXGate,
+    XGate,
+    CXGate,
+    CZGate,
+    Measure,
+    HGate,
+    YGate,
+    ZGate,
+    TGate,
+    TdgGate,
+    SGate,
+    SdgGate,
+    SwapGate,
+)
+from qiskit.providers.options import Options
+from qiskit.qasm2 import dumps
 
+from qoqo_for_braket_devices.devices import StandardizedDevice  # type: ignore
 from qoqo_for_braket.interface import (
     ionq_verbatim_interface,
     iqm_verbatim_interface,
@@ -192,6 +224,95 @@ class BraketBackend:
                     + "this may incur significant monetary charges."
                 )
         return device
+
+    def _fetch_device_calibrations(self) -> Dict:
+        """Fetches the device calibrations from the AWS backend.
+
+        Returns:
+            Dict: The device calibrations.
+        """
+        device = self.__create_device()
+        if not isinstance(device, AwsDevice):
+            raise ValueError(f"Device {device} does not support fetching calibrations.")
+
+        props = device.properties.dict()
+
+        num_qubits = props.get("paradigm").get("qubitCount")
+        connectivity = props.get("paradigm", {}).get("connectivity", {})
+
+        # Check if fully connected
+        if connectivity.get("fullyConnected"):
+            coupling_map = [[i, j] for i in range(num_qubits) for j in range(i + 1, num_qubits)]
+        else:
+            connectivity_graph = connectivity.get("connectivityGraph", {})
+            coupling_map = []
+            for qubit_str, neighbors in connectivity_graph.items():
+                qubit = int(qubit_str) - 1
+                for neighbor_str in neighbors:
+                    neighbor = int(neighbor_str) - 1
+                    coupling_map.append([qubit, neighbor])
+
+        basis_gates = props.get("paradigm", {}).get("nativeGateSet", [])
+
+        stand_dict = props.get("standardized")
+        json_str = json.dumps(stand_dict)
+        standardized_device = StandardizedDevice.from_json(json_str)
+
+        return {
+            "num_qubits": num_qubits,
+            "noise_infos": standardized_device,
+            "coupling_map": coupling_map,
+            "basis_gates": basis_gates,
+        }
+
+    def remap_circuit(
+        self,
+        circuit: Circuit,
+        initial_layout: Layout | None = None,
+    ) -> Tuple[Circuit, Layout]:
+        """Remap the circuit qubits for the device.
+
+        Args:
+            circuit (Circuit): The qoqo Circuit to remap.
+            initial_layout (Layout): If set it will map the circuit to this layout
+                instead of using the backend.
+
+        Returns:
+            Circuit: The remapped qoqo Circuit.
+            Layout: The layout of the circuit after remapping
+        """
+        calibration_dict = self._fetch_device_calibrations()
+
+        # Create the backend with basic configuration
+
+        qasm_backend = qoqo_qasm.QasmBackend()
+        qasm_str = qasm_backend.circuit_to_qasm_str(circuit)
+        qiskit_circuit = QuantumCircuit.from_qasm_str(qasm_str)
+        if initial_layout:
+            remapped_circuit = transpile(
+                qiskit_circuit,
+                optimization_level=0,
+                initial_layout=initial_layout,
+            )
+        else:
+            qiskit_backend = QiskitBraketBackend(calibration_dict=calibration_dict)
+            pm = PassManager(
+                [
+                    VF2Layout(
+                        coupling_map=qiskit_backend.coupling_map,
+                        target=qiskit_backend.target,
+                    ),  # Adaptive, error-aware mapping
+                    FullAncillaAllocation(qiskit_backend.target),
+                    ApplyLayout(),
+                    SabreSwap(qiskit_backend.coupling_map),  # Routing
+                ]
+            )
+            remapped_circuit = pm.run(qiskit_circuit)
+
+        final_layout = remapped_circuit.layout.final_virtual_layout(filter_ancillas=True)
+        transpiled_qasm = dumps(remapped_circuit)
+        remapped_qoqo_circuit = qasm_backend.qasm_str_to_circuit(transpiled_qasm)
+        return remapped_qoqo_circuit, final_layout
 
     # runs a circuit internally and can be used to produce sync and async results
     def _run_circuit(
@@ -433,7 +554,10 @@ class BraketBackend:
             output_complex_register_lengths,
         )
 
-    def run_circuit(self, circuit: Circuit) -> Tuple[
+    def run_circuit(
+        self,
+        circuit: Circuit,
+    ) -> Tuple[
         Dict[str, List[List[bool]]],
         Dict[str, List[List[float]]],
         Dict[str, List[List[complex]]],
@@ -866,3 +990,196 @@ class BraketBackend:
                 queued_runs.append(self.run_measurement_queued(measurement))
 
         return queued_runs
+
+
+_GATE_MAP_STR = {
+    "id": "id",
+    "prx": "r",
+    "rx": "rx",
+    "ry": "ry",
+    "rz": "rz",
+    "sx": "sx",
+    "x": "x",
+    "cx": "cx",
+    "cz": "cz",
+    "h": "h",
+    "y": "y",
+    "z": "z",
+    "t": "t",
+    "tdg": "tdg",
+    "s": "s",
+    "sdg": "sdg",
+    "swap": "swap",
+}
+
+_GATE_MAP = {
+    "id": IGate,
+    "r": RGate,
+    "rx": RXGate,
+    "ry": RYGate,
+    "rz": RZGate,
+    "sx": SXGate,
+    "x": XGate,
+    "cx": CXGate,
+    "cz": CZGate,
+    "h": HGate,
+    "y": YGate,
+    "z": ZGate,
+    "t": TGate,
+    "tdg": TdgGate,
+    "s": SGate,
+    "sdg": SdgGate,
+    "swap": SwapGate,
+}
+
+
+class QiskitBraketBackend(BackendV2):
+    def __init__(self, calibration_dict):
+        super().__init__(name="QiskitBraketBackend")
+        self._num_qubits = calibration_dict["num_qubits"]
+        self._coupling_map = CouplingMap(calibration_dict["coupling_map"])
+        self._basis_gates = [
+            _GATE_MAP_STR[gate]
+            for gate in calibration_dict["basis_gates"]
+            if _GATE_MAP_STR.get(gate)
+        ]
+
+        # Process calibration data
+        self.noise_infos = calibration_dict["noise_infos"]
+        self.single_qubit_errors = {}
+        self.measurement_errors = {}
+        self.two_qubit_errors = {}
+        self.t1_times = {}
+        self.t2_times = {}
+        self.t1_errors = {}
+        self.t2_errors = {}
+
+        self._process_calibration_data()
+        self._target = self._build_target()
+
+    def _process_calibration_data(self):
+        # Single qubit properties
+        for qubit_id_str, qubit_prop in self.noise_infos.one_qubit_properties.items():
+            qubit_id = int(qubit_id_str) - 1
+            # Direct attribute access for T1/T2 properties
+            t1_prop = qubit_prop.t1  # t1_prop.value, t1_prop.standard_error
+            t2_prop = qubit_prop.t2  # t2_prop.value, t2_prop.standard_error
+
+            self.t1_times[qubit_id] = t1_prop.value
+            self.t1_errors[qubit_id] = t1_prop.standard_error
+            self.t2_times[qubit_id] = t2_prop.value
+            self.t2_errors[qubit_id] = t2_prop.standard_error
+
+            # Extract fidelities
+            fidelity_measurements = qubit_prop.one_qubit_fidelity
+            single_qubit_fidelity = 0.99  # Default fallback
+            readout_fidelity = 0.95  # Default fallback
+
+            for fidelity_measurement in fidelity_measurements:
+                # Assume direct attribute access and string attribute for fidelity type name!
+                fidelity_type_name = fidelity_measurement.fidelity_type.name
+                if fidelity_type_name == "SIMULTANEOUS_RANDOMIZED_BENCHMARKING":
+                    single_qubit_fidelity = fidelity_measurement.fidelity
+                elif fidelity_type_name == "READOUT":
+                    readout_fidelity = fidelity_measurement.fidelity
+
+            self.single_qubit_errors[qubit_id] = 1 - single_qubit_fidelity
+            self.measurement_errors[qubit_id] = 1 - readout_fidelity
+
+        # Two qubit properties
+        for qubit_pair_str, two_qubit_prop in self.noise_infos.two_qubit_properties.items():
+            qubit_pair = [int(q) - 1 for q in qubit_pair_str.split("-")]
+            gate_fidelities = two_qubit_prop.two_qubit_gate_fidelity
+            for gate_fidelity in gate_fidelities:
+                error = 1 - gate_fidelity.fidelity
+                if qubit_pair[0] not in self.two_qubit_errors:
+                    self.two_qubit_errors[qubit_pair[0]] = {}
+                if qubit_pair[1] not in self.two_qubit_errors:
+                    self.two_qubit_errors[qubit_pair[1]] = {}
+                self.two_qubit_errors[qubit_pair[0]][qubit_pair[1]] = error
+                self.two_qubit_errors[qubit_pair[1]][qubit_pair[0]] = error
+
+    def _build_target(self):
+        target = Target(num_qubits=self._num_qubits)
+        all_qubits = list(range(self._num_qubits))
+
+        # Add measurement with readout errors
+        target.add_instruction(
+            Measure(),
+            {
+                (q,): InstructionProperties(error=self.measurement_errors.get(q, 0.05))
+                for q in range(self._num_qubits)
+            },
+            name="measure",
+        )
+
+        for gate_name in self._basis_gates:
+            gate_cls = _GATE_MAP[gate_name]
+            if gate_name in ("cx", "swap", "cz"):
+                pair_dict = {
+                    tuple(pair): InstructionProperties(
+                        error=self.two_qubit_errors.get(pair[0], {}).get(pair[1], 0.01)
+                    )
+                    for pair in self._coupling_map.get_edges()
+                }
+                target.add_instruction(gate_cls(), pair_dict, name=gate_name)
+            elif gate_name in ("rx", "ry", "rz"):
+                prop_dict = {
+                    (q,): InstructionProperties(error=self.single_qubit_errors.get(q, 0.01))
+                    for q in all_qubits
+                }
+                target.add_instruction(gate_cls(1), prop_dict, name=gate_name)
+            elif gate_name == "r":
+                prop_dict = {
+                    (q,): InstructionProperties(error=self.single_qubit_errors.get(q, 0.01))
+                    for q in all_qubits
+                }
+                target.add_instruction(gate_cls(0, 0), prop_dict, name=gate_name)
+            else:
+                prop_dict = {
+                    (q,): InstructionProperties(error=self.single_qubit_errors.get(q, 0.01))
+                    for q in all_qubits
+                }
+                target.add_instruction(gate_cls(), prop_dict, name=gate_name)
+
+        return target
+
+    @property
+    def num_qubits(self):
+        return self._num_qubits
+
+    @property
+    def coupling_map(self):
+        return self._coupling_map
+
+    @property
+    def operation_names(self):
+        return self._basis_gates
+
+    @property
+    def target(self):
+        return self._target
+
+    @property
+    def max_circuits(self):
+        return 1000
+
+    @staticmethod
+    def _default_options():
+        return Options()
+
+    def run(self, circuits, **kwargs):
+        raise NotImplementedError("This backend is for transpilation only")
+
+    # T1/T2 inspection helpers
+    def get_t1_time(self, qubit):
+        return self.t1_times.get(qubit)
+
+    def get_t2_time(self, qubit):
+        return self.t2_times.get(qubit)
+
+    def get_t1_error(self, qubit):
+        return self.t1_errors.get(qubit)
+
+    def get_t2_error(self, qubit):
+        return self.t2_errors.get(qubit)

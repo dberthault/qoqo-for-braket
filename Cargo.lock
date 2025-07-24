@@ -1208,6 +1208,8 @@ dependencies = [
  "qoqo-iqm",
  "roqoqo",
  "roqoqo_for_braket_devices",
+ "serde",
+ "serde_json",
  "test-case",
 ]
 
@@ -1403,6 +1405,7 @@ dependencies = [
  "ndarray",
  "roqoqo",
  "serde",
+ "serde_json",
  "test-case",
 ]
 

@@ -29,6 +29,9 @@ pub use crate::devices::aws_oqc_lucy::OQCLucyDevice;
 mod aws_rigetti_aspen_m3;
 pub use crate::devices::aws_rigetti_aspen_m3::RigettiAspenM3Device;
 
+mod standardized_device;
+pub use standardized_device::*;
+
 /// Collection of AWS quantum devices.
 ///
 pub enum AWSDevice {

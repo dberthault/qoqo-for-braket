@@ -12,7 +12,7 @@
 
 use ndarray::array;
 use roqoqo::devices::{Device, QoqoDevice};
-use roqoqo_for_braket_devices::*;
+use roqoqo_for_braket_devices::{devices::StandardizedDevice, *};
 use test_case::test_case;
 
 #[test_case(AWSDevice::from(IonQAria1Device::new()); "IonQAria1Device")]
@@ -445,4 +445,12 @@ fn test_to_generic_device(device: AWSDevice) {
     let mut created_edges = created_generic.two_qubit_edges();
     created_edges.sort();
     assert_eq!(device_edges, created_edges);
+}
+
+#[test]
+fn test_stardardized_device_properties() {
+    let _: StandardizedDevice = serde_json::from_reader(
+        std::fs::File::open("tests/integration/device_properties.json").unwrap(),
+    )
+    .unwrap();
 }
