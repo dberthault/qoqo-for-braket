@@ -318,7 +318,6 @@ class BraketBackend:
 
         qasm_backend = qoqo_qasm.QasmBackend()
         qiskit_circuit = from_qoqo_to_qiskit(circuit)
-        print(qiskit_circuit)
         if initial_layout:
             remapped_circuit = transpile(
                 qiskit_circuit,
