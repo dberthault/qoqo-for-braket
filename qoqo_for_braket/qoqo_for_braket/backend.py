@@ -16,10 +16,10 @@ import json
 import os
 import shutil
 import tempfile
-from typing import Any, Dict, List, Optional, Tuple, Union, cast
-
 import numpy as np
 import qoqo_qasm
+
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 from braket.aws import AwsDevice, AwsQuantumJob, AwsQuantumTask, AwsQuantumTaskBatch
 from braket.aws.aws_session import AwsSession
 from braket.circuits import Circuit as BraketCircuit
@@ -31,7 +31,7 @@ from qoqo import operations as ops  # type: ignore
 from qoqo.measurements import ClassicalRegister  # type:ignore
 from qiskit.providers import BackendV2
 from qiskit.transpiler import CouplingMap, Target, InstructionProperties, Layout, PassManager
-from qiskit import QuantumCircuit, transpile
+from qiskit import QuantumCircuit, transpile, QuantumRegister, ClassicalRegister
 from qiskit.transpiler.passes import (
     VF2Layout,  # noise-aware perfect-layout search
     SabreSwap,  # heuristic router that inserts SWAPs
@@ -77,6 +77,37 @@ REMOTE_SIMULATORS_LIST: List[str] = [
     "arn:aws:braket:::device/quantum-simulator/amazon/tn1",
     "arn:aws:braket:::device/quantum-simulator/amazon/dm1",
 ]
+
+
+def from_qoqo_to_qiskit(qoqo_circuit):
+    num_qubits = qoqo_circuit.number_of_qubits()
+    qreg = QuantumRegister(num_qubits, "q")
+    cl_registers = []
+    clreg_map = {}
+
+    for definition in qoqo_circuit.definitions():
+        if definition.hqslang() == "DefinitionBit":
+            name = definition.name()
+            creg = ClassicalRegister(definition.length(), name)
+            cl_registers.append(creg)
+            clreg_map[name] = creg
+
+    qc = QuantumCircuit(qreg, *cl_registers)
+
+    for op in qoqo_circuit.operations():
+        if op.hqslang() == "RotateXY":
+            theta, phi = float(op.theta()), float(op.phi())
+            qubit = op.qubit()
+            qc.r(theta, phi, qreg[qubit])
+        elif op.hqslang() == "ControlledPauliZ":
+            control, target = op.control(), op.target()
+            qc.cz(qreg[control], qreg[target])
+        elif op.hqslang() == "MeasureQubit":
+            qubit = op.qubit()
+            clreg_name = op.readout()
+            cbit_idx = op.readout_index()
+            qc.measure(qreg[qubit], clreg_map[clreg_name][cbit_idx])
+    return qc
 
 
 class BraketBackend:
@@ -286,8 +317,8 @@ class BraketBackend:
         # Create the backend with basic configuration
 
         qasm_backend = qoqo_qasm.QasmBackend()
-        qasm_str = qasm_backend.circuit_to_qasm_str(circuit)
-        qiskit_circuit = QuantumCircuit.from_qasm_str(qasm_str)
+        qiskit_circuit = from_qoqo_to_qiskit(circuit)
+        print(qiskit_circuit)
         if initial_layout:
             remapped_circuit = transpile(
                 qiskit_circuit,
@@ -308,10 +339,11 @@ class BraketBackend:
                 ]
             )
             remapped_circuit = pm.run(qiskit_circuit)
-
         final_layout = remapped_circuit.layout.final_virtual_layout(filter_ancillas=True)
         transpiled_qasm = dumps(remapped_circuit)
+
         remapped_qoqo_circuit = qasm_backend.qasm_str_to_circuit(transpiled_qasm)
+
         return remapped_qoqo_circuit, final_layout
 
     # runs a circuit internally and can be used to produce sync and async results
