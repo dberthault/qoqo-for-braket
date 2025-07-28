@@ -278,9 +278,9 @@ class BraketBackend:
             connectivity_graph = connectivity.get("connectivityGraph", {})
             coupling_map = []
             for qubit_str, neighbors in connectivity_graph.items():
-                qubit = int(qubit_str) - 1
+                qubit = int(qubit_str)
                 for neighbor_str in neighbors:
-                    neighbor = int(neighbor_str) - 1
+                    neighbor = int(neighbor_str)
                     coupling_map.append([qubit, neighbor])
 
         basis_gates = props.get("paradigm", {}).get("nativeGateSet", [])
@@ -1091,7 +1091,7 @@ class QiskitBraketBackend(BackendV2):
     def _process_calibration_data(self):
         # Single qubit properties
         for qubit_id_str, qubit_prop in self.noise_infos.one_qubit_properties.items():
-            qubit_id = int(qubit_id_str) - 1
+            qubit_id = int(qubit_id_str)
             # Direct attribute access for T1/T2 properties
             t1_prop = qubit_prop.t1  # t1_prop.value, t1_prop.standard_error
             t2_prop = qubit_prop.t2  # t2_prop.value, t2_prop.standard_error
@@ -1119,7 +1119,7 @@ class QiskitBraketBackend(BackendV2):
 
         # Two qubit properties
         for qubit_pair_str, two_qubit_prop in self.noise_infos.two_qubit_properties.items():
-            qubit_pair = [int(q) - 1 for q in qubit_pair_str.split("-")]
+            qubit_pair = [int(q) for q in qubit_pair_str.split("-")]
             gate_fidelities = two_qubit_prop.two_qubit_gate_fidelity
             for gate_fidelity in gate_fidelities:
                 error = 1 - gate_fidelity.fidelity
