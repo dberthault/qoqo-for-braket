@@ -403,20 +403,20 @@ class BraketBackend:
     ) -> Tuple[AwsQuantumTaskBatch, List[Dict[str, Any]], Circuit]:
         """Run a list of Circuits on a AWS backend in batch mode.
 
-        The default number of shots for the simulation is 100.
-        Any kind of Measurement instruction only works as intended if
-        it is the last instruction in the Circuit.
-        Currently only one simulation is performed, meaning different measurements on different
-        registers are not supported.
+                The default number of shots for the simulation is 100.
+                Any kind of Measurement instruction only works as intended if
+                it is the last instruction in the Circuit.
+                Currently only one simulation is performed, meaning different measurements on different
+                registers are not supported.
 
-        Args:
-            circuits (List[Circuit]): the Circuits to simulate.
+                Args:
+                    circuits (List[Circuit]): the Circuits to simulate.
+        list(range(self._num_qubits))
+                Returns:
+                    (AwsQuantumTaskBatch, {readout, output_registers}, input_bit_circuit)
 
-        Returns:
-            (AwsQuantumTaskBatch, {readout, output_registers}, input_bit_circuit)
-
-        Raises:
-            ValueError: Circuit contains multiple ways to set the number of measurements
+                Raises:
+                    ValueError: Circuit contains multiple ways to set the number of measurements
         """
         task_specifications: List[BraketCircuit] = []
         shots_list = []
@@ -1132,14 +1132,14 @@ class QiskitBraketBackend(BackendV2):
 
     def _build_target(self):
         target = Target(num_qubits=self._num_qubits)
-        all_qubits = list(range(self._num_qubits))
+        all_qubits = list(self.single_qubit_errors.keys())
 
         # Add measurement with readout errors
         target.add_instruction(
             Measure(),
             {
                 (q,): InstructionProperties(error=self.measurement_errors.get(q, 0.05))
-                for q in range(self._num_qubits)
+                for q in all_qubits
             },
             name="measure",
         )
