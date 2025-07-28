@@ -79,7 +79,15 @@ REMOTE_SIMULATORS_LIST: List[str] = [
 ]
 
 
-def from_qoqo_to_qiskit(qoqo_circuit):
+def from_qoqo_to_qiskit(qoqo_circuit: Circuit) -> QuantumCircuit:
+    """Transform a qoqo circuit to a qiskit circuit
+
+    Args:
+        qoqo_circuit (circuit): the qoqo circuit to transform.
+
+    Returns:
+        QuantmCircuit: the equivalent qiskit circuit.
+    """
     num_qubits = qoqo_circuit.number_of_qubits()
     qreg = QuantumRegister(num_qubits, "q")
     cl_registers = []
@@ -108,6 +116,46 @@ def from_qoqo_to_qiskit(qoqo_circuit):
             cbit_idx = op.readout_index()
             qc.measure(qreg[qubit], clreg_map[clreg_name][cbit_idx])
     return qc
+
+
+def shift_circuit_qubits(circuit: QuantumCircuit) -> QuantumCircuit:
+    """
+    Remap all qubits in a Qiskit circuit by shifting their indices by one.
+
+    Args:
+        circuit (QuantumCircuit): The original QuantumCircuit to remap
+
+    Returns:
+        QuantumCircuit: New circuit with remapped qubits
+    """
+    num_qubits = circuit.num_qubits
+    new_circuit = QuantumCircuit(num_qubits + 1)
+    creg_map = {}
+    offset = 0
+
+    for creg in circuit.cregs:
+        new_circuit.add_register(ClassicalRegister(creg.size, creg.name))
+        creg_map[creg.name] = (offset, offset + creg.size)
+        offset += creg.size
+
+    for instruction in circuit.data:
+        gate = instruction.operation
+        qubits = instruction.qubits
+        clbits = instruction.clbits
+
+        new_qubits = [new_circuit.qubits[qubit._index + 1] for qubit in qubits]
+
+        new_clbits = []
+        if clbits:
+            for clbit in clbits:
+                for creg_name, (start, end) in creg_map.items():
+                    if start <= clbit._index < end:
+                        local_index = clbit._index - start
+                        new_clbits.append(new_circuit.clbits[start + local_index])
+                        break
+
+        new_circuit.append(gate, new_qubits, new_clbits)
+    return new_circuit
 
 
 class BraketBackend:
@@ -278,9 +326,9 @@ class BraketBackend:
             connectivity_graph = connectivity.get("connectivityGraph", {})
             coupling_map = []
             for qubit_str, neighbors in connectivity_graph.items():
-                qubit = int(qubit_str)
+                qubit = int(qubit_str) - 1
                 for neighbor_str in neighbors:
-                    neighbor = int(neighbor_str)
+                    neighbor = int(neighbor_str) - 1
                     coupling_map.append([qubit, neighbor])
 
         basis_gates = props.get("paradigm", {}).get("nativeGateSet", [])
@@ -339,7 +387,7 @@ class BraketBackend:
             )
             remapped_circuit = pm.run(qiskit_circuit)
         final_layout = remapped_circuit.layout.final_virtual_layout(filter_ancillas=True)
-        transpiled_qasm = dumps(remapped_circuit)
+        transpiled_qasm = dumps(shift_circuit_qubits(remapped_circuit))
 
         remapped_qoqo_circuit = qasm_backend.qasm_str_to_circuit(transpiled_qasm)
 
@@ -1091,7 +1139,7 @@ class QiskitBraketBackend(BackendV2):
     def _process_calibration_data(self):
         # Single qubit properties
         for qubit_id_str, qubit_prop in self.noise_infos.one_qubit_properties.items():
-            qubit_id = int(qubit_id_str)
+            qubit_id = int(qubit_id_str) - 1
             # Direct attribute access for T1/T2 properties
             t1_prop = qubit_prop.t1  # t1_prop.value, t1_prop.standard_error
             t2_prop = qubit_prop.t2  # t2_prop.value, t2_prop.standard_error
@@ -1119,7 +1167,7 @@ class QiskitBraketBackend(BackendV2):
 
         # Two qubit properties
         for qubit_pair_str, two_qubit_prop in self.noise_infos.two_qubit_properties.items():
-            qubit_pair = [int(q) for q in qubit_pair_str.split("-")]
+            qubit_pair = [int(q) - 1 for q in qubit_pair_str.split("-")]
             gate_fidelities = two_qubit_prop.two_qubit_gate_fidelity
             for gate_fidelity in gate_fidelities:
                 error = 1 - gate_fidelity.fidelity
