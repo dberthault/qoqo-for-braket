@@ -79,19 +79,22 @@ REMOTE_SIMULATORS_LIST: List[str] = [
 ]
 
 
-def from_qoqo_to_qiskit(qoqo_circuit: Circuit) -> QuantumCircuit:
+def from_qoqo_to_qiskit(
+    qoqo_circuit: Circuit, num_qubits: int
+) -> Tuple[QuantumCircuit, Optional[ops.PragmaSetNumberOfMeasurements]]:
     """Transform a qoqo circuit to a qiskit circuit
 
     Args:
         qoqo_circuit (circuit): the qoqo circuit to transform.
+        num_qubits (int): The number of qubits in the circuit.
 
     Returns:
         QuantmCircuit: the equivalent qiskit circuit.
     """
-    num_qubits = qoqo_circuit.number_of_qubits()
     qreg = QuantumRegister(num_qubits, "q")
     cl_registers = []
     clreg_map = {}
+    pragma_number_measurement = None
 
     for definition in qoqo_circuit.definitions():
         if definition.hqslang() == "DefinitionBit":
@@ -115,7 +118,9 @@ def from_qoqo_to_qiskit(qoqo_circuit: Circuit) -> QuantumCircuit:
             clreg_name = op.readout()
             cbit_idx = op.readout_index()
             qc.measure(qreg[qubit], clreg_map[clreg_name][cbit_idx])
-    return qc
+        elif op.hqslang() == "PragmaSetNumberOfMeasurements":
+            pragma_number_measurement = op
+    return qc, pragma_number_measurement
 
 
 def shift_circuit_qubits(circuit: QuantumCircuit) -> QuantumCircuit:
@@ -148,7 +153,7 @@ def shift_circuit_qubits(circuit: QuantumCircuit) -> QuantumCircuit:
         new_clbits = []
         if clbits:
             for clbit in clbits:
-                for creg_name, (start, end) in creg_map.items():
+                for _, (start, end) in creg_map.items():
                     if start <= clbit._index < end:
                         local_index = clbit._index - start
                         new_clbits.append(new_circuit.clbits[start + local_index])
@@ -347,12 +352,14 @@ class BraketBackend:
     def remap_circuit(
         self,
         circuit: Circuit,
+        n_qubits: int,
         initial_layout: Layout | None = None,
     ) -> Tuple[Circuit, Layout]:
         """Remap the circuit qubits for the device.
 
         Args:
             circuit (Circuit): The qoqo Circuit to remap.
+            n_qubits (int): The number of qubits in the circuit.
             initial_layout (Layout): If set it will map the circuit to this layout
                 instead of using the backend.
 
@@ -365,7 +372,7 @@ class BraketBackend:
         # Create the backend with basic configuration
 
         qasm_backend = qoqo_qasm.QasmBackend()
-        qiskit_circuit = from_qoqo_to_qiskit(circuit)
+        qiskit_circuit, pragma_number_of_measurement = from_qoqo_to_qiskit(circuit, n_qubits)
         if initial_layout:
             remapped_circuit = transpile(
                 qiskit_circuit,
@@ -390,7 +397,8 @@ class BraketBackend:
         transpiled_qasm = dumps(shift_circuit_qubits(remapped_circuit))
 
         remapped_qoqo_circuit = qasm_backend.qasm_str_to_circuit(transpiled_qasm)
-
+        if pragma_number_of_measurement:
+            remapped_qoqo_circuit += pragma_number_of_measurement
         return remapped_qoqo_circuit, final_layout
 
     # runs a circuit internally and can be used to produce sync and async results
