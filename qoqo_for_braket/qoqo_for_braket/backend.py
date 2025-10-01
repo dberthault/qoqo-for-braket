@@ -505,9 +505,7 @@ class BraketBackend:
         bool_register_dict: Dict[str, List[List[bool]]] = {}
         float_register_dict: Dict[str, List[List[float]]] = {}
         complex_register_dict: Dict[str, List[List[complex]]] = {}
-        quantum_task_batch_results = quantum_task_batch.results()
-        assert len(quantum_task_batch_results) == len(batch_metadata)
-        for quantum_task, metadata in zip(quantum_task_batch_results, batch_metadata):
+        for quantum_task, metadata in zip(quantum_task_batch.results(), batch_metadata):
             results = quantum_task
             (
                 tmp_bool_register_dict,
