@@ -4,6 +4,8 @@ This changelog track changes to the qoqo-for-braket project starting at version 
 
 ## Unpublished
 
+* Updated minimum supported Python version to 3.10.
+
 ## 0.8.0
 
 * Added user_agent to input AwsSessions in order to track on AWS when users use qoqo-for-braket.
