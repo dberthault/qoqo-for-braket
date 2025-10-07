@@ -927,7 +927,7 @@ class BraketBackend:
 
 def virtual_z_replacement(
     circuit: Circuit, rotation_map: Dict[int, CalculatorFloat], apply_final_rz: bool = False
-) -> Tuple[Circuit, Dict[int, CalculatorFloat]]:
+) -> Tuple[Circuit, Optional[Dict[int, CalculatorFloat]]]:
     """Replace the Z gate with the virtual Z gate in a quantum circuit.
 
     Args:
