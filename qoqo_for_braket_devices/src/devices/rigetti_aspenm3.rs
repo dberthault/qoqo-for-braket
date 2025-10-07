@@ -15,8 +15,6 @@ use numpy::{PyArray2, ToPyArray};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
-use bincode::deserialize;
-
 use qoqo::devices::GenericDeviceWrapper;
 use roqoqo::devices::QoqoDevice;
 use roqoqo_for_braket_devices::{AWSDevice, RigettiAspenM3Device};
@@ -216,10 +214,10 @@ impl RigettiAspenM3DeviceWrapper {
     fn qubit_decoherence_rates(&self, qubit: usize) -> Py<PyArray2<f64>> {
         Python::with_gil(|py| -> Py<PyArray2<f64>> {
             match self.internal.qubit_decoherence_rates(&qubit) {
-                Some(matrix) => matrix.to_pyarray_bound(py).unbind().to_owned(),
+                Some(matrix) => matrix.to_pyarray(py).unbind(),
                 None => {
                     let matrix = Array2::<f64>::zeros((3, 3));
-                    matrix.to_pyarray_bound(py).unbind().to_owned()
+                    matrix.to_pyarray(py).unbind()
                 }
             }
         })
@@ -339,11 +337,13 @@ impl RigettiAspenM3DeviceWrapper {
             } else {
                 let get_bytes = input.call_method0("to_bincode")?;
                 let bytes = get_bytes.extract::<Vec<u8>>()?;
-                deserialize(&bytes[..]).map_err(|err| {
-                    PyValueError::new_err(format!(
-                        "Cannot treat input as RigettiAspenM3Device: {err}",
-                    ))
-                })
+                bincode::serde::decode_from_slice(&bytes[..], bincode::config::legacy())
+                    .map_err(|err| {
+                        PyValueError::new_err(format!(
+                            "Cannot treat input as RigettiAspenM3Device: {err}",
+                        ))
+                    })
+                    .map(|(deserialized, _)| deserialized)
             }
         })
     }

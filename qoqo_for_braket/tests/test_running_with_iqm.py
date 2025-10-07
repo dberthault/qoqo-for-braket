@@ -71,5 +71,42 @@ def test_iqm_all_gates() -> None:
             assert qubit == 1 or qubit == 0
 
 
+def test_running_with_virtual_z_replacement() -> None:
+    """Test running simple program."""
+    circuit = Circuit()
+    circuit += ops.DefinitionBit("ro", 2, True)
+    circuit += ops.PauliX(0)
+    circuit += ops.PauliX(1)
+    circuit += ops.PauliZ(1)
+    circuit += ops.PragmaSetNumberOfMeasurements(2, "ro")
+
+    backend = BraketBackend()
+    backend.force_iqm_verbatim()
+    backend.set_virtual_z_replacement(False)
+    (bit_res, _, _) = backend.run_circuit(circuit)
+    assert "ro" in bit_res.keys()
+    registers = bit_res["ro"]
+
+    print(registers)
+    assert len(registers) == 2
+    assert len(registers[0]) == 2
+    assert registers[0] == [True, True]
+
+
+def test_running_with_virtual_z_replacement_errors() -> None:
+    """Test running simple program."""
+    circuit = Circuit()
+    circuit += ops.DefinitionBit("ro", 2, True)
+    circuit += ops.InputBit("ro", 1, True)
+    circuit += ops.CNOT(0, 1)
+    circuit += ops.PragmaSetNumberOfMeasurements(2, "ro")
+
+    backend = BraketBackend()
+    backend.force_iqm_verbatim()
+    backend.set_virtual_z_replacement(True)
+    with pytest.raises(ValueError):
+        backend.run_circuit(circuit)
+
+
 if __name__ == "__main__":
     pytest.main(sys.argv)

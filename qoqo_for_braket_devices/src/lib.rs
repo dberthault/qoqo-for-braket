@@ -31,7 +31,7 @@ fn qoqo_for_braket_devices(_py: Python, module: &Bound<PyModule>) -> PyResult<()
     let wrapper = wrap_pymodule!(devices::aws_devices);
     module.add_wrapped(wrapper)?;
 
-    let system = PyModule::import_bound(_py, "sys")?;
+    let system = PyModule::import(_py, "sys")?;
     let binding = system.getattr("modules")?;
     let system_modules: &Bound<PyDict> = binding.downcast()?;
     system_modules.set_item(

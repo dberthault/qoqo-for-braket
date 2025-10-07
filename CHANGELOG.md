@@ -4,6 +4,10 @@ This changelog track changes to the qoqo-for-braket project starting at version 
 
 ## Unpublished
 
+# 0.9.0
+
+* Updated to qoqo 1.21 and pyo3 0.25.
+* Added support for virtual Z replacement.
 * Updated minimum supported Python version to 3.10.
 
 ## 0.8.0
