@@ -14,7 +14,6 @@ use ndarray::Array2;
 use numpy::{PyArray2, ToPyArray};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-
 use qoqo::devices::GenericDeviceWrapper;
 use roqoqo::devices::QoqoDevice;
 use roqoqo_for_braket_devices::{AWSDevice, IonQAria1Device};

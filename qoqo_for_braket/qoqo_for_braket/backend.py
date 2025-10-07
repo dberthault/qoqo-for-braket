@@ -963,21 +963,31 @@ def virtual_z_replacement(
             elif op.hqslang() == "PauliZ":
                 update_phase_map(rotation_map, op.qubit(), np.pi)
             elif op.hqslang() == "RotateX":
-                new_circuit += rotxy(op.qubit(), op.theta(), 0, rotation_map)
+                new_circuit += ops.RotateXY(
+                    op.qubit(), op.theta(), rotation_map.get(op.qubit(), 0.0)
+                )
             elif op.hqslang() == "RotateY":
-                new_circuit += rotxy(op.qubit(), op.theta(), np.pi / 2, rotation_map)
+                new_circuit += ops.RotateXY(
+                    op.qubit(), op.theta(), np.pi / 2 + rotation_map.get(op.qubit(), 0.0)
+                )
             elif op.hqslang() == "PauliX":
-                new_circuit += rotxy(op.qubit(), np.pi, 0, rotation_map)
+                new_circuit += ops.RotateXY(op.qubit(), np.pi, rotation_map.get(op.qubit(), 0.0))
             elif op.hqslang() == "PauliY":
-                new_circuit += rotxy(op.qubit(), np.pi, np.pi / 2, rotation_map)
+                new_circuit += ops.RotateXY(
+                    op.qubit(), np.pi, np.pi / 2 + rotation_map.get(op.qubit(), 0.0)
+                )
             elif op.hqslang() in ["SqrtPauliX", "InvSqrtPauliX"]:
-                new_circuit += rotxy(op.qubit(), np.pi / 2, 0, rotation_map)
+                new_circuit += ops.RotateXY(
+                    op.qubit(), np.pi / 2, rotation_map.get(op.qubit(), 0.0)
+                )
             elif op.hqslang() == "PhaseShiftState1":
                 update_phase_map(rotation_map, op.qubit(), op.theta())
             elif op.hqslang() == "PhaseShiftState0":
                 update_phase_map(rotation_map, op.qubit(), -op.theta())
             elif op.hqslang() == "RotateXY":
-                new_circuit += rotxy(op.qubit(), op.theta(), op.phi(), rotation_map)
+                new_circuit += ops.RotateXY(
+                    op.qubit(), op.theta(), op.phi() + rotation_map.get(op.qubit(), 0.0)
+                )
             else:
                 raise ValueError(
                     f"All single qubit gates need to be special cases or RotateZ or RotateXY \
@@ -1067,24 +1077,3 @@ def update_phase_map(
     if qubit not in rotation_map:
         rotation_map[qubit] = 0.0
     rotation_map[qubit] -= theta
-
-
-def rotxy(
-    qubit: int,
-    theta: CalculatorFloat,
-    phi: CalculatorFloat,
-    rotation_map: Dict[int, CalculatorFloat],
-) -> ops.RotateXY:
-    """Returns a RotateXY gate with the additional from the map.
-
-    Args:
-        qubit (int): the qubit to apply the gate to.
-        theta (CalculatorFloat): the angle for the rotation around the X-axis.
-        phi (CalculatorFloat): the angle for the rotation around the Y-axis.
-        rotation_map (Dict[int, CalculatorFloat]): the map of rotation angles.
-
-    Returns:
-        ops.RotateXY: the RotateXY gate with the additional from the map.
-    """
-    add_phi = rotation_map.get(qubit, 0.0)
-    return ops.RotateXY(qubit, theta, phi + add_phi)
