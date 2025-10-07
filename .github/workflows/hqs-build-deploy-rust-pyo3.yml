@@ -38,8 +38,6 @@ jobs:
     with: 
       py_interface_folder: "qoqo_for_braket_devices"
       deploy: true
-      # Whether to build for python 3.13. To remove after updating to pyo3 0.22
-      python_3_13: True
       # Whether to build for aarch64. Can fail if there are C/C++ dependencies
       build_for_arm: true
     secrets: inherit
@@ -51,8 +49,6 @@ jobs:
     uses: HQSquantumsimulations/reusable_workflows/.github/workflows/reusable_build_maturin_windows.yml@main
     with: 
       py_interface_folder: "qoqo_for_braket_devices"
-      # Whether to build for python 3.13. To remove after updating to pyo3 0.22
-      python_3_13: True
       deploy: true
     secrets: inherit
 
