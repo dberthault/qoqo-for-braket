@@ -27,9 +27,7 @@ fn new_device(device: AWSDevice) -> Py<PyAny> {
             AWSDevice::IonQAria1Device(_) => py.get_type::<IonQAria1DeviceWrapper>(),
             AWSDevice::IonQHarmonyDevice(_) => py.get_type::<IonQHarmonyDeviceWrapper>(),
             AWSDevice::OQCLucyDevice(_) => py.get_type::<OQCLucyDeviceWrapper>(),
-            AWSDevice::RigettiAspenM3Device(_) => {
-                py.get_type::<RigettiAspenM3DeviceWrapper>()
-            }
+            AWSDevice::RigettiAspenM3Device(_) => py.get_type::<RigettiAspenM3DeviceWrapper>(),
         };
         device_type.call0().unwrap().into()
     })
