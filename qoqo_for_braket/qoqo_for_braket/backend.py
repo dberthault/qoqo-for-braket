@@ -74,6 +74,7 @@ class BraketBackend:
         verbatim_mode: bool = False,
         batch_mode: bool = False,
         use_hybrid_jobs: bool = True,
+        virtual_z_replacement: Optional[bool] = None,
     ) -> None:
         """Initialise the BraketBackend class.
 
@@ -85,6 +86,13 @@ class BraketBackend:
             batch_mode: Run circuits in batch mode when running measurements. \
                     Does not work when circuits define different numbers of shots.
             use_hybrid_jobs: Uses hybrid jobs to run measurements and register measurements.
+            virtual_z_replacement:  On platforms where the RotateXY gate is available and the
+                natural two-qubit gate is diagonal in the Z-basis,
+                it is possible to replace RotateZ gates by virtual changes (rotations)
+                of the qubit basis in the XY-Plane. This is what we implement
+                here. Setting this to True/False will enable the virtual Z replacement with/without
+                the final rotation at the end of the circuit. Leaving this to its default (None) won't
+                use the virtual Z replacement.
 
         """
         self.aws_session = aws_session
@@ -100,7 +108,7 @@ class BraketBackend:
         self.__max_number_shots = 100
         self.batch_mode = batch_mode
         self.use_hybrid_jobs = use_hybrid_jobs
-        self.virtual_z_replacement = None
+        self.virtual_z_replacement = virtual_z_replacement
 
         if self.aws_session is not None:
             version = importlib.metadata.version("qoqo-for-braket")
