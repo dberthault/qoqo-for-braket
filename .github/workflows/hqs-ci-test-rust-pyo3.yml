@@ -17,7 +17,6 @@ jobs:
       # Run tests also on macos runners
       macos: true
       rust_package_name: "roqoqo_for_braket_devices"
-      python_3_13: true
       pip_install: "numpy"
 
   doctest_check:

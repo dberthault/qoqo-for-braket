@@ -60,5 +60,4 @@ jobs:
     with: 
       py_interface_folder: "qoqo_for_braket_devices"
       deploy: true
-      python_3_13: true
     secrets: inherit
