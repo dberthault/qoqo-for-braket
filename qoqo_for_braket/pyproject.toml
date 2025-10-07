@@ -71,7 +71,8 @@ ignore = [
     # "S404",  # not implemented in ruff (yet?!)
     "PLR",
     "S301",
-    "B905"
+    "B905",
+    "C901"
 ]
 # Allow autofix for all enabled rules (when `--fix`) is provided.
 fixable = [

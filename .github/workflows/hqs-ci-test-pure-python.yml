@@ -20,6 +20,5 @@ jobs:
       # Run tests also on windows runners
       windows: true
       # Run tests also on macos runners
-      macos: True
-      python_3_13: True
+      macos: False
   

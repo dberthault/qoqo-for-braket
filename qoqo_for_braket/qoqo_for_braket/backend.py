@@ -926,12 +926,13 @@ class BraketBackend:
 
 
 def virtual_z_replacement(
-    circuit: Circuit, rotation_map: Dict[int, CalculatorFloat] = {}, apply_final_rz: bool = False
+    circuit: Circuit, rotation_map: Dict[int, CalculatorFloat], apply_final_rz: bool = False
 ) -> Tuple[Circuit, Dict[int, CalculatorFloat]]:
     """Replace the Z gate with the virtual Z gate in a quantum circuit.
 
     Args:
         circuit (Circuit): the quantum circuit to replace the Z gate.
+        rotation_map (Dict[int, CalculatorFloat]): the current rotation map.
         apply_final_rz (bool): whether to apply a final Rz gate after the virtual Z gate.
 
     Returns:
@@ -950,7 +951,8 @@ def virtual_z_replacement(
                 new_circuit += op
             else:
                 raise ValueError(
-                    f"All two qubit gates are diagonal when virtualZ replacement is used.\ngate: {op.hqslang()}"
+                    f"All two qubit gates are diagonal when virtualZ \
+                        replacement is used.\ngate: {op.hqslang()}"
                 )
         elif "SingleQubitGateOperation" in op.tags():
             if op.hqslang() == "RotateZ":
@@ -975,14 +977,16 @@ def virtual_z_replacement(
                 new_circuit += rotxy(op.qubit(), op.theta(), op.phi(), rotation_map)
             else:
                 raise ValueError(
-                    f"All single qubit gates are special cases or RotateZ or RotateXY when virtualZ replacement is used.\ngate: {op.hqslang()}"
+                    f"All single qubit gates are special cases or RotateZ or RotateXY when \
+                        virtualZ replacement is used.\ngate: {op.hqslang()}"
                 )
         elif "MultiQubitGateOperation" in op.tags():
             if op.hqslang() == "MultiQubitZZ":
                 new_circuit += op
             else:
                 raise ValueError(
-                    f"All multi qubit gates are diagonal when virtualZ replacement is used.\ngate: {op.hqslang()}"
+                    f"All multi qubit gates are diagonal when virtualZ replacement is used.\
+                        \ngate: {op.hqslang()}"
                 )
         else:
             if op.hqslang() == "MeasureQubit":
@@ -998,7 +1002,8 @@ def virtual_z_replacement(
                         new_circuit += new_inner_circuit
                         if new_map is None:
                             raise ValueError(
-                                "Unexpectedly did not obtain rotation map from virtual rotate z gate optimisation."
+                                "Unexpectedly did not obtain rotation map from virtual rotate \
+                                    z gate optimisation."
                             )
                         rotation_map = new_map
                 except ValueError:
@@ -1049,6 +1054,13 @@ def virtual_z_replacement(
 def update_phase_map(
     rotation_map: Dict[int, CalculatorFloat], qubit: int, theta: CalculatorFloat
 ) -> None:
+    """Updates the rotation map for the given qubit by subtracting the given theta.
+
+    Args:
+        rotation_map (Dict[int, CalculatorFloat]): the map of rotation angles.
+        qubit (int): the qubit to update the map for.
+        theta (CalculatorFloat): the angle to subtract from the rotation map.
+    """
     if qubit not in rotation_map:
         rotation_map[qubit] = 0.0
     rotation_map[qubit] -= theta
@@ -1058,7 +1070,18 @@ def rotxy(
     qubit: int,
     theta: CalculatorFloat,
     phi: CalculatorFloat,
-    rotation_map: Dict[int, CalculatorFloat] = {},
+    rotation_map: Dict[int, CalculatorFloat],
 ) -> ops.RotateXY:
+    """Returns a RotateXY gate with the additional from the map.
+
+    Args:
+        qubit (int): the qubit to apply the gate to.
+        theta (CalculatorFloat): the angle for the rotation around the X-axis.
+        phi (CalculatorFloat): the angle for the rotation around the Y-axis.
+        rotation_map (Dict[int, CalculatorFloat]): the map of rotation angles.
+
+    Returns:
+        ops.RotateXY: the RotateXY gate with the additional from the map.
+    """
     add_phi = rotation_map.get(qubit, 0.0)
     return ops.RotateXY(qubit, theta, phi + add_phi)
