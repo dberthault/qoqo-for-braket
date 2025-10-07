@@ -930,9 +930,12 @@ def virtual_z_replacement(
 ) -> Tuple[Circuit, Optional[Dict[int, CalculatorFloat]]]:
     """Replace the Z gate with the virtual Z gate in a quantum circuit.
 
+    It commutes the phasse at the end of the circuit.
+
     Args:
         circuit (Circuit): the quantum circuit to replace the Z gate.
-        rotation_map (Dict[int, CalculatorFloat]): the current rotation map.
+        rotation_map (Dict[int, CalculatorFloat]): The current rotation map containing the phase
+            information of each qubit.
         apply_final_rz (bool): whether to apply a final Rz gate after the virtual Z gate.
 
     Returns:
@@ -951,7 +954,7 @@ def virtual_z_replacement(
                 new_circuit += op
             else:
                 raise ValueError(
-                    f"All two qubit gates are diagonal when virtualZ \
+                    f"All two qubit gates need to be diagonal when virtualZ \
                         replacement is used.\ngate: {op.hqslang()}"
                 )
         elif "SingleQubitGateOperation" in op.tags():
@@ -977,16 +980,16 @@ def virtual_z_replacement(
                 new_circuit += rotxy(op.qubit(), op.theta(), op.phi(), rotation_map)
             else:
                 raise ValueError(
-                    f"All single qubit gates are special cases or RotateZ or RotateXY when \
-                        virtualZ replacement is used.\ngate: {op.hqslang()}"
+                    f"All single qubit gates need to be special cases or RotateZ or RotateXY \
+                        when virtualZ replacement is used.\ngate: {op.hqslang()}"
                 )
         elif "MultiQubitGateOperation" in op.tags():
             if op.hqslang() == "MultiQubitZZ":
                 new_circuit += op
             else:
                 raise ValueError(
-                    f"All multi qubit gates are diagonal when virtualZ replacement is used.\
-                        \ngate: {op.hqslang()}"
+                    f"All multi qubit gates need to be diagonal when virtualZ replacement \
+                        is used.\ngate: {op.hqslang()}"
                 )
         else:
             if op.hqslang() == "MeasureQubit":
