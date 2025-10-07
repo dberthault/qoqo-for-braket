@@ -181,8 +181,16 @@ class BraketBackend:
     def set_virtual_z_replacement(self, replacement: bool) -> None:
         """Set the virtual Z replacement mode.
 
+        On platforms where the RotateXY gate is available and the
+        natural two-qubit gate is diagonal in the Z-basis,
+        it is possible to replace RotateZ gates by virtual changes (rotations)
+        of the qubit basis in the XY-Plane. This is what we implement
+        here. Setting this to True/False will enable the virtual Z replacement with/without
+        the final rotation at the end of the circuit. Leaving this to its default (None) won't
+        use the virtual Z replacement.
+
         Args:
-            replacement: True to enable virtual Z replacement, False otherwise.
+            replacement (Optional[bool]): The virtual Z replacement mode.
         """
         self.virtual_z_replacement = replacement
 
@@ -930,7 +938,12 @@ def virtual_z_replacement(
 ) -> Tuple[Circuit, Optional[Dict[int, CalculatorFloat]]]:
     """Replace the Z gate with the virtual Z gate in a quantum circuit.
 
-    It commutes the phasse at the end of the circuit.
+    It commutes the phase at the end of the circuit.
+    On platforms where the RotateXY gate is available and the
+    natural two-qubit gate is diagonal in the Z-basis,
+    it is possible to replace RotateZ gates by virtual changes (rotations)
+    of the qubit basis in the XY-Plane. This is what we implement
+    here.
 
     Args:
         circuit (Circuit): the quantum circuit to replace the Z gate.
