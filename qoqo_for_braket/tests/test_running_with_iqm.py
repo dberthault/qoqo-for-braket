@@ -82,7 +82,7 @@ def test_running_with_virtual_z_replacement() -> None:
 
     backend = BraketBackend()
     backend.force_iqm_verbatim()
-    backend.set_virtual_z_replacement(False)
+    backend.set_virtual_z_replacement(replacement=False)
     (bit_res, _, _) = backend.run_circuit(circuit)
     assert "ro" in bit_res.keys()
     registers = bit_res["ro"]
@@ -103,7 +103,7 @@ def test_running_with_virtual_z_replacement_errors() -> None:
 
     backend = BraketBackend()
     backend.force_iqm_verbatim()
-    backend.set_virtual_z_replacement(True)
+    backend.set_virtual_z_replacement(replacement=False)
     with pytest.raises(ValueError):
         backend.run_circuit(circuit)
 
@@ -111,7 +111,7 @@ def test_running_with_virtual_z_replacement_errors() -> None:
 def test_quantum_program_virtual_Z():
     """Test running quantum program with virtual Z replacement."""
     backend = BraketBackend()
-    backend.set_virtual_z_replacement(False)
+    backend.set_virtual_z_replacement(replacement=False)
     backend.force_iqm_verbatim()
 
     circuit = Circuit()
@@ -156,7 +156,7 @@ def test_quantum_program_virtual_Z():
 def test_quantum_program_virtual_Z_error():
     """Test failing quantum program with virtual Z replacement."""
     backend = BraketBackend()
-    backend.set_virtual_z_replacement(False)
+    backend.set_virtual_z_replacement(replacement=False)
     backend.force_iqm_verbatim()
 
     circuit = Circuit()
